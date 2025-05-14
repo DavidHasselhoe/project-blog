@@ -15,18 +15,17 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static(path.join(__dirname, "../public"), { index: false }));
+app.use(express.static(path.join(__dirname, "../public")));
 
 app.get("/", (req, res) => {
-  res.redirect("/register");
+  res.sendFile(path.join(__dirname, "../public", "index.html"));
 });
 
-app.get("/register", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "register.html"));
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public", "login.html"));
 });
 
-// Register all routes from routes.js under /api
-app.use("/api", routes);
+app.use("/api", routes(process.env.JWT_SECRET));
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
