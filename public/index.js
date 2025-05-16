@@ -34,10 +34,11 @@ function renderPosts(posts) {
     card.className = "text-decoration-none text-dark";
     card.innerHTML = `
       <div class="border p-2 h-100 d-flex flex-column">
-        <div class="mb-2" style="height: 150px; background-color: #eee">
-          IMAGE
-        </div>
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80" alt="Blog post image" class="mb-2 w-100" style="height: 150px; object-fit: cover;">
         <h5>${post.Title}</h5>
+        <div class="mb-1 text-muted" style="font-size: 0.95em;">
+          Published by <span class="fw-semibold">${post.Username}</span>
+        </div>
         <small class="text-muted">Published: ${new Date(
           post.CreatedAt
         ).toLocaleDateString("en-GB")}</small>
@@ -57,7 +58,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoutNav = document.getElementById("logoutNav");
   const logoutBtn = document.getElementById("logoutBtn");
 
-  if (token) {
+  const username = getUsernameFromToken(token);
+
+  if (token && username) {
+    loginStatus.innerHTML = `<span class="nav-link text-success">Logged in as <strong>${username}</strong></span>`;
+    logoutNav.style.display = "block";
+  } else if (token) {
     loginStatus.innerHTML = `<span class="nav-link text-success">Logged in</span>`;
     logoutNav.style.display = "block";
   } else {
@@ -100,4 +106,15 @@ document.addEventListener("keydown", (e) => {
 async function fetchAllPosts() {
   const res = await fetch("/api/posts");
   return await res.json();
+}
+
+function getUsernameFromToken(token) {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    // Adjust the property name based on your JWT payload
+    return payload.username || payload.email || null;
+  } catch {
+    return null;
+  }
 }

@@ -60,7 +60,9 @@ export default (SECRET_KEY) => {
       const result = await pool
         .request()
         .input("email", email)
-        .query("SELECT id, Password_Hash FROM Users WHERE Email = @email");
+        .query(
+          "SELECT id, username, Password_Hash FROM Users WHERE Email = @email"
+        );
 
       if (result.recordset.length === 0) {
         return res.status(401).json({ message: "Invalid email or password" });
@@ -76,9 +78,11 @@ export default (SECRET_KEY) => {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      const token = jwt.sign({ userId: user.id }, SECRET_KEY, {
-        expiresIn: "1h",
-      });
+      const token = jwt.sign(
+        { userId: user.id, username: user.username, email: email },
+        SECRET_KEY,
+        { expiresIn: "1h" }
+      );
       res.json({ token });
     } catch (err) {
       console.error("Error during login:", err);
@@ -100,8 +104,7 @@ export default (SECRET_KEY) => {
         .request()
         .input("Title", title)
         .input("Content", content)
-        .input("UserId", req.user.userId) // Use the userId from the token
-        .query(`
+        .input("UserId", req.user.userId).query(`
           INSERT INTO Posts (Title, Content, UserId)
           VALUES (@Title, @Content, @UserId)
         `);
@@ -120,7 +123,10 @@ export default (SECRET_KEY) => {
     try {
       const pool = await poolPromise;
       const result = await pool.query(`
-        SELECT Id, Title, Content, CreatedAt FROM Posts ORDER BY CreatedAt DESC
+        SELECT Posts.Id, Posts.Title, Posts.Content, Posts.CreatedAt, Users.username AS Username
+        FROM Posts
+        JOIN Users ON Posts.UserId = Users.Id
+        ORDER BY Posts.CreatedAt DESC
       `);
 
       res.json(result.recordset || []);
@@ -134,7 +140,7 @@ export default (SECRET_KEY) => {
 
   //-----------------Search posts-----------------\\
   router.get("/posts/search", async (req, res) => {
-    const { q } = req.query; // q is the search query
+    const { q } = req.query;
     try {
       const pool = await poolPromise;
       const result = await pool.request().input("query", `%${q || ""}%`).query(`
@@ -185,7 +191,6 @@ export default (SECRET_KEY) => {
 
     try {
       const pool = await poolPromise;
-      // Check if the post belongs to the user
       const check = await pool
         .request()
         .input("PostId", postId)
