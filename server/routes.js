@@ -7,7 +7,8 @@ import { authenticateToken } from "./authMiddleware.js";
 export default (SECRET_KEY) => {
   const router = express.Router();
 
-  //-----------------User registration route-----------------\\
+  //-----------------Register route-----------------\\
+  // Registers a new user by saving their username, email, and hashed password in the database.
   router.post("/register", async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -51,7 +52,8 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------User login route-----------------\\
+  //-----------------Login route-----------------\\
+  // Authenticates a user by verifying their email and password, then returns a JWT token.
   router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -91,6 +93,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Blog post route-----------------\\
+  // Creates a new blog post. Requires authentication.
   router.post("/posts", authenticateToken, async (req, res) => {
     const { title, content } = req.body;
 
@@ -119,6 +122,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Get blog posts-----------------\\
+  // Fetches all blog posts along with their authors.
   router.get("/posts", async (req, res) => {
     try {
       const pool = await poolPromise;
@@ -139,6 +143,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Search posts-----------------\\
+  // Searches for blog posts by title.
   router.get("/posts/search", async (req, res) => {
     const { q } = req.query;
     try {
@@ -159,6 +164,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Get specific post-----------------\\
+  // Fetches a specific blog post by its ID.
   router.get("/posts/:postId", async (req, res) => {
     const { postId } = req.params;
 
@@ -184,6 +190,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Update specific post-----------------\\
+  // Updates a specific blog post. Requires authentication and ownership.
   router.put("/posts/:postId", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const { title, content } = req.body;
@@ -221,6 +228,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Delete specific post-----------------\\
+  // Deletes a specific blog post. Requires authentication and ownership.
   router.delete("/posts/:postId", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
@@ -254,6 +262,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Like a post-----------------\\
+  // Likes a specific blog post. Requires authentication.
   router.post("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
@@ -290,6 +299,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Unlike a post-----------------\\
+  // Removes a like from a specific blog post. Requires authentication.
   router.delete("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
@@ -312,6 +322,7 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Get like count and whether the user liked the post-----------------\\
+  // Fetches the like count and whether the authenticated user liked the post.
   router.get("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;

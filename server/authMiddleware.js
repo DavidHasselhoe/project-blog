@@ -1,3 +1,4 @@
+// This middleware authenticates requests by verifying the JWT token in the Authorization header.
 import jwt from "jsonwebtoken";
 
 export const authenticateToken = (req, res, next) => {

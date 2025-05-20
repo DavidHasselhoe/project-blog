@@ -112,7 +112,6 @@ function getUsernameFromToken(token) {
   if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    // Adjust the property name based on your JWT payload
     return payload.username || payload.email || null;
   } catch {
     return null;

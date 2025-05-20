@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    image: node:18
+    container_name: project-blog-app
+    working_dir: /usr/src/app
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+      - DB_HOST=db
+      - DB_USER=sa
+      - DB_PASSWORD=DavidDBSA1!
+      - DB_NAME=Blog
+    depends_on:
+      - db
+    command: >
+      sh -c "npm install && node server/server.js"
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: project-blog-db
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=DavidDBSA1!
+    volumes:
+      - db_data:/var/opt/mssql
+
+volumes:
+  db_data:
