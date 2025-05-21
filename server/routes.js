@@ -1,14 +1,13 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { poolPromise } from "./database.js";
+import { pool } from "./database.js"; // PostgreSQL pool
 import jwt from "jsonwebtoken";
-import { authenticateToken } from "./authMiddleware.js";
+import { authenticateToken } from "./authMiddleware.js"; // Middleware for JWT authentication
 
 export default (SECRET_KEY) => {
   const router = express.Router();
 
   //-----------------Register route-----------------\\
-  // Registers a new user by saving their username, email, and hashed password in the database.
   router.post("/register", async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -19,29 +18,21 @@ export default (SECRET_KEY) => {
     }
 
     try {
-      const pool = await poolPromise;
-      const emailCheck = await pool
-        .request()
-        .input("email", email)
-        .query("SELECT id FROM Users WHERE email = @email");
+      const emailCheck = await pool.query(
+        "SELECT id FROM users WHERE email = $1",
+        [email]
+      );
 
-      if (emailCheck.recordset.length > 0) {
+      if (emailCheck.rows.length > 0) {
         return res.status(400).json({ message: "Email already exists" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const insertQuery = `
-        INSERT INTO Users (username, email, password_hash)
-        VALUES (@username, @email, @password_hash);
-      `;
-
-      await pool
-        .request()
-        .input("username", username)
-        .input("email", email)
-        .input("password_hash", hashedPassword)
-        .query(insertQuery);
+      await pool.query(
+        "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)",
+        [username, email, hashedPassword]
+      );
 
       res.status(201).json({ message: "User registered successfully!" });
     } catch (err) {
@@ -53,35 +44,28 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Login route-----------------\\
-  // Authenticates a user by verifying their email and password, then returns a JWT token.
   router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
-      const pool = await poolPromise;
-      const result = await pool
-        .request()
-        .input("email", email)
-        .query(
-          "SELECT id, username, Password_Hash FROM Users WHERE Email = @email"
-        );
+      const result = await pool.query(
+        "SELECT id, username, password_hash FROM users WHERE email = $1",
+        [email]
+      );
 
-      if (result.recordset.length === 0) {
+      if (result.rows.length === 0) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      const user = result.recordset[0];
-      const isPasswordValid = await bcrypt.compare(
-        password,
-        user.Password_Hash
-      );
+      const user = result.rows[0];
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
       if (!isPasswordValid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       const token = jwt.sign(
-        { userId: user.id, username: user.username, email: email },
+        { userId: user.id, username: user.username, email },
         SECRET_KEY,
         { expiresIn: "1h" }
       );
@@ -92,8 +76,7 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Blog post route-----------------\\
-  // Creates a new blog post. Requires authentication.
+  //-----------------Create a blog post-----------------\\
   router.post("/posts", authenticateToken, async (req, res) => {
     const { title, content } = req.body;
 
@@ -102,15 +85,10 @@ export default (SECRET_KEY) => {
     }
 
     try {
-      const pool = await poolPromise;
-      await pool
-        .request()
-        .input("Title", title)
-        .input("Content", content)
-        .input("UserId", req.user.userId).query(`
-          INSERT INTO Posts (Title, Content, UserId)
-          VALUES (@Title, @Content, @UserId)
-        `);
+      await pool.query(
+        "INSERT INTO posts (title, content, user_id) VALUES ($1, $2, $3)",
+        [title, content, req.user.userId]
+      );
 
       res.status(201).json({ message: "Post created successfully!" });
     } catch (err) {
@@ -121,19 +99,15 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Get blog posts-----------------\\
-  // Fetches all blog posts along with their authors.
+  //-----------------Get all blog posts-----------------\\
   router.get("/posts", async (req, res) => {
     try {
-      const pool = await poolPromise;
-      const result = await pool.query(`
-        SELECT Posts.Id, Posts.Title, Posts.Content, Posts.CreatedAt, Users.username AS Username
-        FROM Posts
-        JOIN Users ON Posts.UserId = Users.Id
-        ORDER BY Posts.CreatedAt DESC
-      `);
+      const result = await pool.query(
+        "SELECT posts.id, posts.title, posts.content, posts.created_at, users.username AS username " +
+        "FROM posts JOIN users ON posts.user_id = users.id ORDER BY posts.created_at DESC"
+      );
 
-      res.json(result.recordset || []);
+      res.json(result.rows || []);
     } catch (err) {
       console.error("Error fetching posts:", err);
       res
@@ -142,45 +116,21 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Search posts-----------------\\
-  // Searches for blog posts by title.
-  router.get("/posts/search", async (req, res) => {
-    const { q } = req.query;
-    try {
-      const pool = await poolPromise;
-      const result = await pool.request().input("query", `%${q || ""}%`).query(`
-          SELECT Id, Title, Content, CreatedAt
-          FROM Posts
-          WHERE Title LIKE @query
-          ORDER BY CreatedAt DESC
-        `);
-      res.json(result.recordset || []);
-    } catch (err) {
-      console.error("Error searching posts:", err);
-      res
-        .status(500)
-        .json({ message: "An error occurred while searching posts." });
-    }
-  });
-
-  //-----------------Get specific post-----------------\\
-  // Fetches a specific blog post by its ID.
+  //-----------------Get a specific post-----------------\\
   router.get("/posts/:postId", async (req, res) => {
     const { postId } = req.params;
 
     try {
-      const pool = await poolPromise;
-      const result = await pool.request().input("PostId", postId).query(`
-        SELECT Id, Title, Content, UserId, CreatedAt
-        FROM Posts
-        WHERE Id = @PostId
-      `);
+      const result = await pool.query(
+        "SELECT id, title, content, user_id, created_at FROM posts WHERE id = $1",
+        [postId]
+      );
 
-      if (result.recordset.length === 0) {
+      if (result.rows.length === 0) {
         return res.status(404).json({ message: "Post not found" });
       }
 
-      res.json(result.recordset[0]);
+      res.json(result.rows[0]);
     } catch (err) {
       console.error("Error fetching post:", err);
       res
@@ -189,34 +139,28 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Update specific post-----------------\\
-  // Updates a specific blog post. Requires authentication and ownership.
+  //-----------------Update a specific post-----------------\\
   router.put("/posts/:postId", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const { title, content } = req.body;
     const userId = req.user.userId;
 
     try {
-      const pool = await poolPromise;
-      const check = await pool
-        .request()
-        .input("PostId", postId)
-        .query("SELECT UserId FROM Posts WHERE Id = @PostId");
+      const check = await pool.query(
+        "SELECT user_id FROM posts WHERE id = $1",
+        [postId]
+      );
 
-      if (!check.recordset.length || check.recordset[0].UserId !== userId) {
+      if (!check.rows.length || check.rows[0].user_id !== userId) {
         return res
           .status(403)
           .json({ message: "You are not allowed to edit this post." });
       }
 
-      await pool
-        .request()
-        .input("PostId", postId)
-        .input("Title", title)
-        .input("Content", content)
-        .query(
-          "UPDATE Posts SET Title = @Title, Content = @Content WHERE Id = @PostId"
-        );
+      await pool.query(
+        "UPDATE posts SET title = $1, content = $2 WHERE id = $3",
+        [title, content, postId]
+      );
 
       res.json({ message: "Post updated successfully!" });
     } catch (err) {
@@ -227,30 +171,24 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Delete specific post-----------------\\
-  // Deletes a specific blog post. Requires authentication and ownership.
+  //-----------------Delete a specific post-----------------\\
   router.delete("/posts/:postId", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
 
     try {
-      const pool = await poolPromise;
-      const check = await pool
-        .request()
-        .input("PostId", postId)
-        .query("SELECT UserId FROM Posts WHERE Id = @PostId");
+      const check = await pool.query(
+        "SELECT user_id FROM posts WHERE id = $1",
+        [postId]
+      );
 
-      if (!check.recordset.length || check.recordset[0].UserId !== userId) {
+      if (!check.rows.length || check.rows[0].user_id !== userId) {
         return res
           .status(403)
           .json({ message: "You are not allowed to delete this post." });
       }
 
-      // Delete the post
-      await pool
-        .request()
-        .input("PostId", postId)
-        .query("DELETE FROM Posts WHERE Id = @PostId");
+      await pool.query("DELETE FROM posts WHERE id = $1", [postId]);
 
       res.json({ message: "Post deleted successfully!" });
     } catch (err) {
@@ -262,32 +200,24 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Like a post-----------------\\
-  // Likes a specific blog post. Requires authentication.
   router.post("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
 
     try {
-      const pool = await poolPromise;
-      const check = await pool
-        .request()
-        .input("UserId", userId)
-        .input("PostId", postId)
-        .query(
-          "SELECT Id FROM Likes WHERE UserId = @UserId AND PostId = @PostId"
-        );
+      const check = await pool.query(
+        "SELECT id FROM likes WHERE user_id = $1 AND post_id = $2",
+        [userId, postId]
+      );
 
-      if (check.recordset.length > 0) {
+      if (check.rows.length > 0) {
         return res.status(400).json({ message: "Already liked" });
       }
 
-      await pool
-        .request()
-        .input("UserId", userId)
-        .input("PostId", postId)
-        .query(
-          "INSERT INTO Likes (UserId, PostId, LikedAt) VALUES (@UserId, @PostId, GETDATE())"
-        );
+      await pool.query(
+        "INSERT INTO likes (user_id, post_id, liked_at) VALUES ($1, $2, NOW())",
+        [userId, postId]
+      );
 
       res.json({ message: "Post liked!" });
     } catch (err) {
@@ -299,18 +229,15 @@ export default (SECRET_KEY) => {
   });
 
   //-----------------Unlike a post-----------------\\
-  // Removes a like from a specific blog post. Requires authentication.
   router.delete("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
 
     try {
-      const pool = await poolPromise;
-      await pool
-        .request()
-        .input("UserId", userId)
-        .input("PostId", postId)
-        .query("DELETE FROM Likes WHERE UserId = @UserId AND PostId = @PostId");
+      await pool.query(
+        "DELETE FROM likes WHERE user_id = $1 AND post_id = $2",
+        [userId, postId]
+      );
 
       res.json({ message: "Post unliked!" });
     } catch (err) {
@@ -321,32 +248,25 @@ export default (SECRET_KEY) => {
     }
   });
 
-  //-----------------Get like count and whether the user liked the post-----------------\\
-  // Fetches the like count and whether the authenticated user liked the post.
+  //-----------------Get like info-----------------\\
   router.get("/posts/:postId/like", authenticateToken, async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.userId;
 
     try {
-      const pool = await poolPromise;
-      const countResult = await pool
-        .request()
-        .input("PostId", postId)
-        .query(
-          "SELECT COUNT(*) AS likeCount FROM Likes WHERE PostId = @PostId"
-        );
+      const countResult = await pool.query(
+        "SELECT COUNT(*) AS like_count FROM likes WHERE post_id = $1",
+        [postId]
+      );
 
-      const userLikeResult = await pool
-        .request()
-        .input("UserId", userId)
-        .input("PostId", postId)
-        .query(
-          "SELECT Id FROM Likes WHERE UserId = @UserId AND PostId = @PostId"
-        );
+      const userLikeResult = await pool.query(
+        "SELECT id FROM likes WHERE user_id = $1 AND post_id = $2",
+        [userId, postId]
+      );
 
       res.json({
-        likeCount: countResult.recordset[0].likeCount,
-        likedByUser: userLikeResult.recordset.length > 0,
+        likeCount: parseInt(countResult.rows[0].like_count),
+        likedByUser: userLikeResult.rows.length > 0,
       });
     } catch (err) {
       console.error("Error fetching like info:", err);

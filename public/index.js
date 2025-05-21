@@ -30,17 +30,17 @@ function renderPosts(posts) {
     column.className = "col-12 col-md-6 col-lg-4";
 
     const card = document.createElement("a");
-    card.href = `viewpost.html?postId=${post.Id}`;
+    card.href = `viewpost.html?postId=${post.id}`;
     card.className = "text-decoration-none text-dark";
     card.innerHTML = `
       <div class="border p-2 h-100 d-flex flex-column">
         <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80" alt="Blog post image" class="mb-2 w-100" style="height: 150px; object-fit: cover;">
-        <h5>${post.Title}</h5>
+        <h5>${post.title}</h5>
         <div class="mb-1 text-muted" style="font-size: 0.95em;">
-          Published by <span class="fw-semibold">${post.Username}</span>
+          Published by <span class="fw-semibold">${post.username}</span>
         </div>
         <small class="text-muted">Published: ${new Date(
-          post.CreatedAt
+          post.created_at
         ).toLocaleDateString("en-GB")}</small>
       </div>
     `;

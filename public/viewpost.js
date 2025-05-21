@@ -2,35 +2,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const postId = urlParams.get("postId");
 
-  if (!postId || postId === "null") {
-    alert("No post selected.");
+  if (!postId) {
+    alert("Post ID is missing from the URL");
     return;
   }
 
   const res = await fetch(`/api/posts/${postId}`);
   const post = await res.json();
 
-  document.getElementById("postTitle").textContent = post.Title;
-  document.getElementById("postBody").textContent = post.Content;
+  document.getElementById("postTitle").textContent = post.title;
+  document.getElementById("postBody").textContent = post.content;
 
   const token = localStorage.getItem("jwtToken");
-  let userId = null;
+  let userid = null;
   if (token) {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    userId = payload.userId;
+    console.log("JWT payload:", payload);
+    userid = payload.userId;
   }
 
-  console.log("post.UserId:", post.UserId, "userId:", userId);
-
-  if (userId && String(post.UserId) === String(userId)) {
+  if (userid && String(post.user_id) === String(userid)) {
     document.getElementById("editBtn").style.display = "inline-block";
     document.getElementById("deleteBtn").style.display = "inline-block";
   }
 
   document.getElementById("editBtn").addEventListener("click", () => {
     document.getElementById("editForm").style.display = "block";
-    document.getElementById("editTitle").value = post.Title;
-    document.getElementById("editContent").value = post.Content;
+    document.getElementById("editTitle").value = post.title;
+    document.getElementById("editContent").value = post.content;
   });
 
   document.getElementById("cancelEdit").addEventListener("click", () => {
