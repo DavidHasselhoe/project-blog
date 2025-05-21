@@ -4,20 +4,19 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const pool = new Pool({
-  user: process.env.DB_USER, // you’ll likely need a username here
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD, // PostgreSQL needs a password unless configured otherwise
-  port: process.env.DB_PORT || 5432,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, // Needed for Railway's managed Postgres
+  },
 });
 
 pool
   .connect()
   .then(() => {
-    console.log("Connected to PostgreSQL");
+    console.log("✅ Connected to PostgreSQL on Railway");
   })
   .catch((err) => {
-    console.error("Database Connection Failed! Bad Config: ", err);
+    console.error("❌ Database connection failed:", err);
     throw err;
   });
 
