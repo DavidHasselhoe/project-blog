@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   app:
@@ -10,27 +10,32 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
-      - DB_HOST=db
-      - DB_USER=sa
-      - DB_PASSWORD=DavidDBSA1!
-      - DB_NAME=Blog
+      - DATABASE_URL=postgresql://postgres:DavidDBSU1!@postgres:5432/Blog
     depends_on:
-      - db
+      postgres:
+        condition: service_healthy
     command: >
       sh -c "npm install && node server/server.js"
 
-  db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: project-blog-db
+  postgres:
+    image: postgres:15
+    container_name: project-blog-postgres
     ports:
-      - "1433:1433"
+      - "5432:5432"
     environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=DavidDBSA1!
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=DavidDBSU1!
+      - POSTGRES_DB=Blog
     volumes:
-      - db_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  db_data:
+  postgres_data:

@@ -5,18 +5,22 @@ dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, // Needed for Railway's managed Postgres
-  },
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? {
+          rejectUnauthorized: false,
+        }
+      : false,
 });
 
 pool
   .connect()
   .then(() => {
-    console.log("✅ Connected to PostgreSQL on Railway");
+    const env = process.env.NODE_ENV || "development";
+    console.log(`Connected to PostgreSQL (${env} environment)`);
   })
   .catch((err) => {
-    console.error("❌ Database connection failed:", err);
+    console.error("Database connection failed:", err);
     throw err;
   });
 
