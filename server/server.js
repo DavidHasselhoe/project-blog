@@ -28,5 +28,8 @@ app.get("/login", (req, res) => {
 app.use("/api", routes(process.env.JWT_SECRET));
 
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`
+Application: http://localhost:${PORT}/index.html
+Database Admin: http://localhost:8080
+  `);
 });
